@@ -5,9 +5,9 @@ use itertools::Itertools;
 use smallvec::{smallvec,SmallVec};
 use std::fmt::Debug;
 
-const GRID_SIZE : usize = 9;
+const GRID_SIZE : usize = 16;
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 struct Point{
   x: i8, y: u8
 }
@@ -90,7 +90,7 @@ impl Grid {
     if p.y > 0 {
       out.push(Point{x : p.x, y: p.y-1});
     }
-    if (p.x as usize) < GRID_SIZE-1 {
+    if p.x < (GRID_SIZE-1) as i8 {
       out.push(Point{x: p.x+1, y:p.y});
     }
     if p.x > -1 * ((GRID_SIZE-1) as i8) {
@@ -117,7 +117,7 @@ fn enumerate_recursion(out: &mut Vec<PointList>, grid: &mut Grid,
 {
   assert!(cur_omino_size <= size);
   
-  dbg!(&grid);
+  //dbg!(&grid);
   while reachable_set.len() > 0 {
     //dbg!(&reachable_set, cur_omino_size);
     let next_tile = reachable_set.pop().unwrap(); //todo integrate with loop cond
@@ -132,9 +132,10 @@ fn enumerate_recursion(out: &mut Vec<PointList>, grid: &mut Grid,
       out.push(occupied_set.clone());
 
     } else {
+      let stuff = [Point{x: -1, y: 3}]; //[Point{x: -1, y: 1}, Point{x: -1, y: 2}, Point{x: -1, y: 3}];
       //we aren't done with this omino yet, so we need to update reachability and so on
       let mut new_reachable_set = reachable_set.clone();
-      //dbg!(Grid::get_neighbors(next_tile));
+      // if stuff.contains(&next_tile) {dbg!(Grid::get_neighbors(next_tile));}
       let free_neighbors: SmallVec<[Point; 4]> = Grid::get_neighbors(next_tile).into_iter()
         .filter(|&neighbor|grid.get_pos(neighbor) == Free)
         .collect();
@@ -142,6 +143,12 @@ fn enumerate_recursion(out: &mut Vec<PointList>, grid: &mut Grid,
           new_reachable_set.push(neighbor); 
           grid.set_pos(neighbor, Reachable);
       }
+      // if stuff.contains(&next_tile) {
+      //   dbg!(&next_tile);
+      //   dbg!(&reachable_set);
+      //   dbg!(&new_reachable_set);
+      //   dbg!(&grid);
+      // }
       enumerate_recursion(out, grid, new_reachable_set, occupied_set, cur_omino_size, size);
       for neighbor in free_neighbors {
         grid.set_pos(neighbor, Free);
@@ -181,6 +188,12 @@ type FreePointList = SmallVec<[FreePoint; 8]>;
 impl From<Point> for FreePoint {
   fn from(Point { x, y }: Point) -> Self {
       FreePoint { x, y: y.try_into().unwrap() }
+  }
+}
+
+impl From<FreePoint> for Point {
+  fn from(FreePoint { x, y }: FreePoint) -> Self {
+    Point { x, y: y.try_into().unwrap() }
   }
 }
 
@@ -250,10 +263,22 @@ fn slow_omino_enum(size : u8) -> Vec<FreePointList> {
 }
 
 fn main() {
-  for i in (1..=8) {
-    println!("{}-ominoes: {}", i, slow_omino_enum(i).len());
+  for i in (15..=15) {
+    println!("{}-ominoes: {}", i, enumerate_polyominos(i).len());
   }
-  //dbg!(dumb_omino_enum(2));
+  
+  // let n = 6;
+  // let slominos : Vec<PointList> = slow_omino_enum(n).into_iter().map(|o|o.into_iter().map(|p|p.into()).collect()).collect();
+  // let fastinos = enumerate_polyominos(n).into_iter().map(|mut o|{o.sort(); o}).collect_vec();
+  // dbg!(slominos.len());
+  // dbg!(fastinos.len());
+  // let missing = slominos.into_iter().filter(|o|!fastinos.contains(o)).collect_vec();
+  // dbg!(missing.len());
+  
+  // dbg!(&slominos);
+  // dbg!(&fastinos);
+  // dbg!(&missing);
+  
 }
 //num ominos, fi`ed:
 /*
@@ -268,3 +293,14 @@ fn main() {
 9 | 9910
 10 | 36446 
 */
+
+pub mod test {
+  use super::*;
+
+    #[test]
+    fn neighbors_correct(){
+      let ans: PointList = smallvec![Point{x: -2, y: 3}, Point{x: 0, y: 3}, Point{x: -1, y: 4}, Point{x: -1, y: 2}];
+      assert_eq!(Grid::get_neighbors(Point{x: -1, y: 3}), ans)
+    }
+
+}

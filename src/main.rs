@@ -1,15 +1,18 @@
-#![allow(unused)] // tests dont seem to count
+#![allow(unused)] use std::{fmt::Write, collections::HashSet, cmp::Ordering};
+
+// tests dont seem to count
 use itertools::Itertools;
 use smallvec::{smallvec,SmallVec};
+use std::fmt::Debug;
 
-const GRID_SIZE : usize = 8;
+const GRID_SIZE : usize = 9;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 struct Point{
   x: i8, y: u8
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash)]
 pub enum TileState {
   Border,
   Occupied,
@@ -18,7 +21,23 @@ pub enum TileState {
 }
 use TileState::*;
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+impl TileState {
+  fn to_char(&self) -> char {
+    match self {
+      Border => 'B',
+      Occupied => '#', 
+      Reachable => 'r',
+      Free => '.',
+    }
+  }
+}
+impl Debug for TileState {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.write_char(self.to_char())
+  }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 struct Grid{
   grid: [[TileState; GRID_SIZE]; 2*GRID_SIZE-1]
 }
@@ -34,6 +53,24 @@ impl Default for Grid {
         Self { grid }
     }
 }
+
+impl Debug for Grid {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+      struct Row([TileState; GRID_SIZE]);
+      impl Debug for Row {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            for ts in self.0 {
+              f.write_char(ts.to_char());
+            }
+            Ok(())
+        }
+      }
+      f.debug_struct("Grid")
+       .field("grid", &self.grid.map(|x|Row(x)))
+       .finish()
+  }
+}
+
 impl Grid {
   fn get_pos(&self, p : Point) -> TileState {
     let x_raw = p.x + ((GRID_SIZE-1) as i8);
@@ -64,7 +101,6 @@ impl Grid {
 }
 
 fn add_tile(mut grid: Grid, p : Point, mut reachable : SmallVec<[Point; 8]>) {
-  //grid.set_pos(p, true); 
   let possible_neighbors = Grid::get_neighbors(p);
   for neighbor in possible_neighbors {
     if !reachable.contains(&neighbor) {
@@ -81,8 +117,8 @@ fn enumerate_recursion(out: &mut Vec<PointList>, grid: &mut Grid,
 {
   assert!(cur_omino_size <= size);
   
+  dbg!(&grid);
   while reachable_set.len() > 0 {
-    //dbg!(&grid);
     //dbg!(&reachable_set, cur_omino_size);
     let next_tile = reachable_set.pop().unwrap(); //todo integrate with loop cond
     //dbg!(&next_tile);
@@ -133,12 +169,93 @@ fn enumerate_polyominos(size : u8) -> Vec<PointList> {
 
   return out 
 }
-fn main() {
-  for i in (1..=6) {
-    println!("{}-ominoes: {}", i, enumerate_polyominos(i).len());
+
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Debug)]
+struct FreePoint{
+  x: i8, y: i8
+}
+
+type FreePointList = SmallVec<[FreePoint; 8]>;
+
+impl From<Point> for FreePoint {
+  fn from(Point { x, y }: Point) -> Self {
+      FreePoint { x, y: y.try_into().unwrap() }
   }
 }
-//num ominos, fixed:
+
+impl FreePoint {
+  fn get_neighbors(&self) -> FreePointList {
+    let mut out = smallvec![];
+    match self {
+      FreePoint { x, y } => for (dx, dy) in [(1,0), (-1, 0), (0, 1), (0, -1)] {
+        out.push(FreePoint{x: x+dx, y: y+dy});
+      },
+    }
+    out 
+  }
+
+  fn get_all_neighbors(pts : &FreePointList) -> FreePointList {
+    let mut neighbor_pts = HashSet::new();
+    for pt in pts {
+      neighbor_pts.extend(pt.get_neighbors());
+    }
+    neighbor_pts.into_iter().collect()
+  }
+}
+
+fn sum_points(FreePoint { x: px, y: py }: FreePoint, FreePoint { x: qx, y: qy }: FreePoint) -> FreePoint {
+  FreePoint { x: px + qx, y: py + qy }
+}
+fn compare_points(FreePoint { x: px, y: py }: &FreePoint, FreePoint { x: qx, y: qy }: &FreePoint) -> Ordering {
+  match py.cmp(qy) {
+    Ordering::Less => Ordering::Less,
+    Ordering::Greater => Ordering::Greater,
+    Ordering::Equal => px.cmp(qx),
+  }
+}
+
+fn translate_omino(omino: FreePointList, translation: FreePoint) -> FreePointList {
+  omino.into_iter().map(|pt| sum_points(pt, translation)).collect()
+}
+
+fn normalize_omino(omino: FreePointList) -> FreePointList {
+  //takes an omino and translates it so it matches the Redelmeir normalization (y >= 0, y=0 => x>= 0)
+  //dbg!(&omino);
+  let FreePoint{x: min_x, y: min_y} = *omino.iter().min_by(|p, q|compare_points(p, q)).unwrap();
+  let translation = FreePoint { x: -1*min_x, y: -1*min_y };
+  //dbg!(&translation);
+  let mut translated_omino = translate_omino(omino, translation);
+  translated_omino.sort();
+  //dbg!(&translated_omino);
+  translated_omino
+}
+
+fn slow_omino_enum(size : u8) -> Vec<FreePointList> {
+  if size == 1 {
+    return vec![smallvec![FreePoint{x : 0, y: 0}]];
+  }
+  let smaller_ominos = slow_omino_enum(size - 1);
+  let mut out = HashSet::new();
+  for smaller_omino in smaller_ominos {
+    let neighbors = FreePoint::get_all_neighbors(&smaller_omino).into_iter()
+      .filter(|pt|!smaller_omino.contains(pt));
+    for neighbor in neighbors {
+      let mut new_omino = smaller_omino.clone();
+      new_omino.push(neighbor);
+      out.insert(normalize_omino(new_omino));
+    }
+  }
+  out.into_iter().collect()
+}
+
+fn main() {
+  for i in (1..=8) {
+    println!("{}-ominoes: {}", i, slow_omino_enum(i).len());
+  }
+  //dbg!(dumb_omino_enum(2));
+}
+//num ominos, fi`ed:
 /*
 1 | 1
 2 | 2 

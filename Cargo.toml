@@ -2,9 +2,13 @@
 name = "polyominoes"
 version = "0.1.0"
 edition = "2021"
+[profile.release]
+debug = 1
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 itertools = "0.10.5"
+pprof = { version = "0.11", features = ["flamegraph", "protobuf"] }
 smallvec = "1.10.0"

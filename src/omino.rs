@@ -85,6 +85,7 @@ impl Grid {
     self.grid[x_raw as usize][p.y as usize] = new_val
   }
 
+
   pub fn get_neighbors(p : Point) -> SmallVec<[Point; 4]> {
     let mut out = smallvec![];
     if (p.y as usize) < GRID_SIZE-1 {
@@ -108,16 +109,11 @@ impl Grid {
 type PointList = SmallVec<[Point; 16]>;
 
 fn enumerate_recursion(out: &mut Vec<PointList>, grid: &mut Grid, 
-  mut reachable_set : PointList, occupied_set : &mut PointList, 
+  mut untried_set : PointList, occupied_set : &mut PointList, 
   mut cur_omino_size : u8, size : u8) 
 {
   assert!(cur_omino_size <= size);
-  
-  //dbg!(&grid);
-  while reachable_set.len() > 0 {
-    //dbg!(&reachable_set, cur_omino_size);
-    let next_tile = reachable_set.pop().unwrap(); //todo integrate with loop cond
-    //dbg!(&next_tile);
+  while let Some(next_tile) = untried_set.pop() {
     grid.set_pos(next_tile, Occupied);
     //dbg!("after set:", &grid);
     occupied_set.push(next_tile);
@@ -133,7 +129,7 @@ fn enumerate_recursion(out: &mut Vec<PointList>, grid: &mut Grid,
     } else {
       let stuff = [Point{x: -1, y: 3}]; //[Point{x: -1, y: 1}, Point{x: -1, y: 2}, Point{x: -1, y: 3}];
       //we aren't done with this omino yet, so we need to update reachability and so on
-      let mut new_reachable_set = reachable_set.clone();
+      let mut new_reachable_set = untried_set.clone();
       // if stuff.contains(&next_tile) {dbg!(Grid::get_neighbors(next_tile));}
       let free_neighbors: SmallVec<[Point; 4]> = Grid::get_neighbors(next_tile).into_iter()
         .filter(|&neighbor|grid.get_pos(neighbor) == Free)
@@ -176,13 +172,31 @@ pub fn enumerate_polyominos(size : u8) -> Vec<PointList> {
   return out 
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
+ pub enum Dir {
+  N, E, S, W
+ }
+use Dir::*;
+pub fn dir_to_offset(d: Dir) -> FreePoint {
+  match d {
+    N => FreePoint {x : 1, y : 0}, 
+    E => FreePoint {x : 0, y : 1}, 
+    S => FreePoint {x : -1, y : 0}, 
+    W => FreePoint {x : 0, y : -1}, 
+  }
+}
+
+pub fn offset_in_dir(fp: FreePoint, d: Dir) -> FreePoint {
+  sum_points(fp, dir_to_offset(d))
+}
+
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Debug)]
 pub struct FreePoint{
-  x: i8, y: i8
+  pub x: i8, pub y: i8
 }
 
-type FreePointList = SmallVec<[FreePoint; 8]>;
+pub type FreePointList = SmallVec<[FreePoint; 8]>;
 
 impl From<Point> for FreePoint {
   fn from(Point { x, y }: Point) -> Self {
@@ -207,6 +221,10 @@ impl FreePoint {
     out 
   }
 
+  pub fn get_neighbors_with_directions(self) -> [(FreePoint, Dir); 4] {
+    [N, E, S, W].map(|d|(offset_in_dir(self, d), d))
+  }
+
   pub fn get_all_neighbors(pts : &FreePointList) -> FreePointList {
     let mut neighbor_pts = HashSet::new();
     for pt in pts {
@@ -216,9 +234,13 @@ impl FreePoint {
   }
 }
 
-pub fn sum_points(FreePoint { x: px, y: py }: FreePoint, FreePoint { x: qx, y: qy }: FreePoint) -> FreePoint {
+
+pub fn sum_points(FreePoint { x: px, y: py }: FreePoint, 
+  FreePoint { x: qx, y: qy }: FreePoint) 
+-> FreePoint {
   FreePoint { x: px + qx, y: py + qy }
 }
+
 pub fn compare_points(FreePoint { x: px, y: py }: &FreePoint, FreePoint { x: qx, y: qy }: &FreePoint) -> Ordering {
   match py.cmp(qy) {
     Ordering::Less => Ordering::Less,

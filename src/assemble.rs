@@ -1,7 +1,8 @@
 #![allow(unused)] 
 
 use std::collections::HashSet;
-
+use std::cmp::Ordering;
+use Ordering::*;
 use smallvec::{smallvec,SmallVec};
 
 use crate::omino::{FreePoint, FreePointList, sum_points, Dir, translate_omino, offset_in_dir, normalize_omino};
@@ -153,7 +154,7 @@ pub struct ConfigurationTranslation{
   translations: SmallVec<[FreePoint; 4]>
 }
 
-pub fn merge_pts(pts : &FreePointList, mut new_pts : FreePointList) -> Option<FreePointList> {
+pub fn merge_pts_slow(pts : &FreePointList, mut new_pts : FreePointList) -> Option<FreePointList> {
   /* invariants: pts is sorted. new_pts is not sorted. 
   if pts and new_pts overlap, then return None. 
   else, return a new sorted list of pts that is their union. 
@@ -166,6 +167,36 @@ pub fn merge_pts(pts : &FreePointList, mut new_pts : FreePointList) -> Option<Fr
     return Some(new_pts)
   }
 
+}
+pub fn merge_pts(pts : &FreePointList, mut new_pts : FreePointList) -> Option<FreePointList> {
+   /* invariants: pts is sorted. new_pts is not sorted. 
+  if pts and new_pts overlap, then return None. 
+  else, return a new sorted list of pts that is their union. 
+  */
+  let mut out = smallvec![];
+  new_pts.sort_unstable();
+  let mut pts_index = 0; 
+  let mut new_pts_index = 0;
+  while pts_index < pts.len() && new_pts_index < new_pts.len() {
+    match pts[pts_index].cmp(&new_pts[new_pts_index]) {
+      Equal => return None, 
+      Less => {out.push(pts[pts_index]); pts_index += 1},
+      Greater => {out.push(new_pts[new_pts_index]); new_pts_index += 1},
+    }
+  }
+
+  while pts_index < pts.len() {
+    out.push(pts[pts_index]);
+    pts_index += 1; 
+  }
+  
+  while new_pts_index < new_pts.len() {
+    out.push(new_pts[new_pts_index]);
+    new_pts_index += 1; 
+  }
+
+  assert!(out.len() == pts.len() + new_pts.len());
+  Some(out)
 }
 
 pub fn next_edge_to_cover(pts: &FreePointList) -> Option<Edge> { 

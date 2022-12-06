@@ -4,8 +4,8 @@ use std::collections::HashSet;
 
 use smallvec::{smallvec,SmallVec};
 
-use crate::omino::{FreePoint, FreePointList, sum_points, Dir};
-
+use crate::omino::{FreePoint, FreePointList, sum_points, Dir, translate_omino};
+use Dir::*;
 
 /*
 The goal of this module is to efficiently test whether an omino can surround a 1x1 
@@ -53,20 +53,85 @@ pub fn iter_perimeter(fps: &FreePointList) -> impl Iterator<Item=Edge> {
   out.into_iter()
 } 
 
-pub fn align_perim(omino: &FreePointList, src: Edge, target: Edge) -> FreePointList {
-  todo!()
+
+fn dir_to_num(d: Dir) -> i8 {
+  match d {
+    N => 0, 
+    E => 1, 
+    S => 2, 
+    W => 3
+  }
 }
+
+pub fn rotate_0(fp: FreePoint) -> FreePoint {
+  fp
+}
+
+pub fn rotate_cw(FreePoint { x, y }: FreePoint) -> FreePoint {
+  FreePoint { x: y, y: -x }
+}
+
+pub fn rotate_ccw(FreePoint { x, y }: FreePoint) -> FreePoint {
+  FreePoint { x: -y, y: x }
+}
+
+pub fn rotate_180(FreePoint { x, y }: FreePoint) -> FreePoint {
+  FreePoint { x: -x, y: -y }  
+}
+
+pub fn rotate_omino_edge(omino: &FreePointList, Edge(src_point, src_dir): Edge, target_dir: Dir) 
+  -> (FreePointList, FreePoint) 
+{
+  /* takes in an omino, an edge we want to rotate & track, and the direction we'd like
+    that edge to face
+    returns the rotated omino, and the new (translated) location of that edge. The 
+    direction of the edge is target_dir and thus is not returned
+  */
+  //amount to rotate clockwise, in increments of 90 degrees
+  let amt_to_rotate = (dir_to_num(target_dir) - dir_to_num(src_dir) + 4) % 4;
+  let rotate_fn = match amt_to_rotate {
+    0 => rotate_0,
+    1 => rotate_cw, 
+    2 => rotate_180,
+    3 => rotate_ccw,
+    _ => unreachable!("we already did mod 4")
+  };
+
+  (omino.iter().map(|&p| rotate_fn(p)).collect(), rotate_fn(src_point))
+  
+}
+
+pub fn translate_a_to_b(
+  FreePoint { x: px, y: py }: FreePoint, 
+  FreePoint { x: qx, y: qy }: FreePoint) 
+  -> FreePoint
+{
+  FreePoint { x: qx - px, y: qy - qx }
+}
+
+pub fn align_perim(omino: &FreePointList, src: Edge, Edge(target_point, target_dir): Edge)
+ -> FreePointList 
+{
+  let (rotated_omino, rotated_src_pt) = rotate_omino_edge(omino, src, target_dir);
+  let translation = translate_a_to_b(rotated_src_pt, target_point);
+  return translate_omino(rotated_omino, translation)
+}
+
 
 pub mod test {
   use super::*;
 
+    fn point_assert(fp: FreePoint) {
+      assert_eq!(fp, rotate_180(rotate_180(fp)));
+      assert_eq!(fp, rotate_cw(rotate_ccw(fp)));
+      assert_eq!(rotate_cw(fp), rotate_ccw(rotate_ccw(rotate_ccw(fp))));
+      assert_eq!(rotate_ccw(rotate_ccw(fp)), rotate_cw(rotate_cw(fp)));
+    }
+    
     #[test]
-    fn neighbors_correct(){
-      // let mut ans: PointList = smallvec![Point{x: -2, y: 3}, Point{x: 0, y: 3}, Point{x: -1, y: 4}, Point{x: -1, y: 2}];
-      // ans.sort();
-      // let mut neighbors = Grid::get_neighbors(Point{x: -1, y: 3});
-      // neighbors.sort();
-      // assert_eq!(neighbors, ans)
+    fn point_fiddling() {
+      let pts = [(0,0), (1,3), (4,4), (-3, 6), (3, -5)].map(|(x,y)| FreePoint{x, y});
+      pts.map(|p|point_assert(p));
     }
 
 }

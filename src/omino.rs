@@ -131,7 +131,8 @@ fn enumerate_recursion(out: &mut Vec<PointList>, grid: &mut Grid,
       //we aren't done with this omino yet, so we need to update reachability and so on
       let mut new_reachable_set = untried_set.clone();
       // if stuff.contains(&next_tile) {dbg!(Grid::get_neighbors(next_tile));}
-      let free_neighbors: SmallVec<[Point; 4]> = Grid::get_neighbors(next_tile).into_iter()
+      let free_neighbors: SmallVec<[Point; 4]> = Grid::get_neighbors(next_tile)
+        .into_iter()
         .filter(|&neighbor|grid.get_pos(neighbor) == Free)
         .collect();
       for &neighbor in free_neighbors.iter() {
@@ -253,11 +254,15 @@ pub fn translate_omino(omino: FreePointList, translation: FreePoint) -> FreePoin
   omino.into_iter().map(|pt| sum_points(pt, translation)).collect()
 }
 
+pub fn invert_point(FreePoint { x, y }: FreePoint) -> FreePoint {
+  FreePoint { x: -1 * x, y: -1 * y }
+}
+
 pub fn normalize_omino(omino: FreePointList) -> FreePointList {
   //takes an omino and translates it so it matches the Redelmeir normalization (y >= 0, y=0 => x>= 0)
   //dbg!(&omino);
-  let FreePoint{x: min_x, y: min_y} = *omino.iter().min_by(|p, q|compare_points(p, q)).unwrap();
-  let translation = FreePoint { x: -1*min_x, y: -1*min_y };
+  let min_point = *omino.iter().min_by(|p, q|compare_points(p, q)).unwrap();
+  let translation = invert_point(min_point);
   //dbg!(&translation);
   let mut translated_omino = translate_omino(omino, translation);
   translated_omino.sort();

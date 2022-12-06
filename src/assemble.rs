@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use smallvec::{smallvec,SmallVec};
 
-use crate::omino::{FreePoint, FreePointList, sum_points, Dir, translate_omino};
+use crate::omino::{FreePoint, FreePointList, sum_points, Dir, translate_omino, offset_in_dir, normalize_omino};
 use Dir::*;
 
 /*
@@ -40,7 +40,7 @@ ominos, iterate an omino's perimeter
 pub struct Edge(FreePoint, Dir);
 
 
-pub fn iter_perimeter(fps: &FreePointList) -> impl Iterator<Item=Edge> {
+pub fn iter_perimeter(fps: &FreePointList) -> Vec<Edge> {
   let points_occupied : HashSet<FreePoint> = fps.iter().cloned().collect(); 
   let mut out = vec![];
   for &pt in fps {
@@ -50,7 +50,7 @@ pub fn iter_perimeter(fps: &FreePointList) -> impl Iterator<Item=Edge> {
       }
     }
   }
-  out.into_iter()
+  out
 } 
 
 
@@ -79,6 +79,29 @@ pub fn rotate_180(FreePoint { x, y }: FreePoint) -> FreePoint {
   FreePoint { x: -x, y: -y }  
 }
 
+pub fn rotational_equivalence(omino: &FreePointList, omino2: &FreePointList) -> bool {
+  let mut sorted_omino = normalize_omino(omino.clone());
+  sorted_omino.sort();
+  let rotate_fns = [rotate_0, rotate_cw, rotate_180, rotate_ccw];
+  
+  rotate_fns.into_iter().any(|f| {
+    let mut rotated_omino2: FreePointList = normalize_omino(
+      omino2.iter().map(|&pt|f(pt)).collect());
+    rotated_omino2.sort();
+    rotated_omino2 == sorted_omino
+  })
+}
+
+pub fn rotational_deduplicate(ominos: &Vec<FreePointList>) -> Vec<FreePointList> {
+  let mut out = vec![];
+  for omino in ominos {
+    if ! out.iter().any(|prev_omino|rotational_equivalence(prev_omino, omino)) {
+      out.push(omino.clone());
+    }
+  }
+
+  out 
+}
 pub fn rotate_omino_edge(omino: &FreePointList, Edge(src_point, src_dir): Edge, target_dir: Dir) 
   -> (FreePointList, FreePoint) 
 {
@@ -101,22 +124,110 @@ pub fn rotate_omino_edge(omino: &FreePointList, Edge(src_point, src_dir): Edge, 
   
 }
 
-pub fn translate_a_to_b(
+pub fn translation_of_a_to_b(
   FreePoint { x: px, y: py }: FreePoint, 
   FreePoint { x: qx, y: qy }: FreePoint) 
   -> FreePoint
 {
-  FreePoint { x: qx - px, y: qy - qx }
+  FreePoint { x: qx - px, y: qy - py }
 }
 
 pub fn align_perim(omino: &FreePointList, src: Edge, Edge(target_point, target_dir): Edge)
  -> FreePointList 
 {
   let (rotated_omino, rotated_src_pt) = rotate_omino_edge(omino, src, target_dir);
-  let translation = translate_a_to_b(rotated_src_pt, target_point);
+  let translation = translation_of_a_to_b(rotated_src_pt, target_point);
   return translate_omino(rotated_omino, translation)
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub struct Configuration{
+  pts: FreePointList, //invariant: sorted
+  translations: SmallVec<[FreePoint; 4]>
+}
+
+pub fn merge_pts(pts : &FreePointList, mut new_pts : FreePointList) -> Option<FreePointList> {
+  /* invariants: pts is sorted. new_pts is not sorted. 
+  if pts and new_pts overlap, then return None. 
+  else, return a new sorted list of pts that is their union. 
+   */
+  let set: HashSet<_> = HashSet::from_iter(pts.iter());
+  if new_pts.iter().any(|pt| set.contains(pt)) {
+    return None
+  } else {
+    new_pts.extend(pts.clone());
+    return Some(new_pts)
+  }
+
+}
+
+pub fn next_point_to_cover(pts: &FreePointList) -> Option<(Dir, FreePoint)> {
+  let pts_to_cover = [N, E, S, W].map(|d|(d, offset_in_dir(FreePoint{x: 0, y: 0}, d)));
+  pts_to_cover.iter().copied().filter(|(d,pt)|!pts.contains(pt)).next()
+}
+
+pub fn translate_a_to_b(pts: FreePointList, a: FreePoint, b: FreePoint) 
+  -> (FreePointList, FreePoint) 
+{
+  // dbg!("translating", a, b);
+  let translation = translation_of_a_to_b(a, b);
+  // dbg!("translation", translation);
+  (translate_omino(pts, translation), translation)
+}
+
+pub fn add_children(omino: &FreePointList, perimeter: &Vec<Edge>,
+  stack: &mut Vec<Configuration>, Configuration { pts, translations }: Configuration)
+  -> Option<SmallVec<[FreePoint; 4]>> 
+{
+  /* adds the children of the given configuration to the stack, and returns None, 
+  unless a successful configuration is found, in which case it is returned */
+
+  let (dir_to_cover, pt_to_cover) = next_point_to_cover(&pts).unwrap();
+  // dbg!(&dir_to_cover, &pt_to_cover);
+  let mut possible_edges = perimeter.iter()
+    .filter(|&&(Edge(fp, d))| d == dir_to_cover.flip());
+  let mut translated_ominos_and_translations = possible_edges
+    .map(|&(Edge(src_pt, _src_dir))| translate_a_to_b(omino.clone(), src_pt, pt_to_cover));
+  for (translated_omino, translation) in translated_ominos_and_translations {
+    // dbg!(&translated_omino, &translation);
+    if let Some(merged_pts) = merge_pts(&pts, translated_omino) {
+      let mut new_translations = translations.clone();
+      new_translations.push(translation);
+      if let None = next_point_to_cover(&merged_pts) {
+        //we win, return that
+        return Some(new_translations)
+      } else {
+        let new_config = Configuration{pts: merged_pts, translations: new_translations};
+        // dbg!("new config:", &new_config);
+        stack.push(new_config);
+      }
+    }
+  }
+
+  None
+}
+
+pub fn find_arrangement_translation(omino: &FreePointList) -> Option<SmallVec<[FreePoint;4]>> {
+  /*
+  Given an omino, searches for a set of translations which arrange that omino to 
+  surround   the hole (0,0) with overlap, or returns None if there are none
+
+  to do this, we progressively try to cover the sides of the hole in CW order 
+  starting with N via a depth first search, backtracking whenever there is no
+  way to proceed. Since we are only looking at translations and not rotations, 
+  to cover the N side of the hole, we must use a S facing edge, and so on. 
+   */
+  let mut stack : Vec<Configuration> = vec![Configuration::default()]; //todo, empty configuration
+  let perimeter = iter_perimeter(omino);
+  while let Some(config) = stack.pop() {
+    // dbg!(&config);
+    match add_children(omino, &perimeter, &mut stack, config) {
+      Some(ans) => return Some(ans), 
+      None => (),
+    }
+  }
+  None
+}
 
 pub mod test {
   use super::*;
@@ -130,7 +241,7 @@ pub mod test {
     
     #[test]
     fn point_fiddling() {
-      let pts = [(0,0), (1,3), (4,4), (-3, 6), (3, -5)].map(|(x,y)| FreePoint{x, y});
+      let pts = [(0,0), (1,3), (4,4), (-3, 6), (3, -5), (20, 0)].map(|(x,y)| FreePoint{x, y});
       pts.map(|p|point_assert(p));
     }
 

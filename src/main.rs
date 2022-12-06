@@ -2,27 +2,31 @@
 mod omino;
 mod assemble;
 
-use crate::omino::{enumerate_polyominos, slow_omino_enum};
+use assemble::find_arrangement_translation;
+use itertools::Itertools;
+
+use crate::{omino::{enumerate_polyominos}, assemble::rotational_deduplicate};
 
 fn main() {
-  for i in 16..=16 {
-    println!("{}-ominoes: {}", i, enumerate_polyominos(i).len());
+  // for i in 16..=16 {
+  //   println!("{}-ominoes: {}", i, enumerate_polyominos(i).len());
+  // }
+  
+  for i in 8..=8 {
+    let ominos = enumerate_polyominos(i);
+    let num_ominos = ominos.len();
+    let untranslateable_ominos = ominos.into_iter()
+      .map(|pts|pts.into_iter().map(|pt|pt.into()).collect())
+      .filter(|omino|find_arrangement_translation(omino).is_none())
+      .collect_vec();
+    println!("{}-ominoes, count: {} untranslateable: {}",
+      i, num_ominos, untranslateable_ominos.len());
+    dbg!(rotational_deduplicate(&untranslateable_ominos));
   }
-  
-  // let n = 6;
-  // let slominos : Vec<PointList> = slow_omino_enum(n).into_iter().map(|o|o.into_iter().map(|p|p.into()).collect()).collect();
-  // let fastinos = enumerate_polyominos(n).into_iter().map(|mut o|{o.sort(); o}).collect_vec();
-  // dbg!(slominos.len());
-  // dbg!(fastinos.len());
-  // let missing = slominos.into_iter().filter(|o|!fastinos.contains(o)).collect_vec();
-  // dbg!(missing.len());
-  
-  // dbg!(&slominos);
-  // dbg!(&fastinos);
-  // dbg!(&missing);
-  
+
+
 }
-//num ominos, fi`ed:
+//num ominos, fixed:
 /*
 1 | 1
 2 | 2 

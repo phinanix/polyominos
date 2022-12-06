@@ -178,12 +178,23 @@ pub fn enumerate_polyominos(size : u8) -> Vec<PointList> {
   N, E, S, W
  }
 use Dir::*;
+
+impl Dir {
+  pub fn flip(self : Dir) -> Dir {
+    match self {
+      N => S, 
+      S => N,
+      E => W, 
+      W => E,
+    }
+  }
+}
 pub fn dir_to_offset(d: Dir) -> FreePoint {
   match d {
-    N => FreePoint {x : 1, y : 0}, 
-    E => FreePoint {x : 0, y : 1}, 
-    S => FreePoint {x : -1, y : 0}, 
-    W => FreePoint {x : 0, y : -1}, 
+    N => FreePoint {x : 0, y : 1}, 
+    E => FreePoint {x : 1, y : 0}, 
+    S => FreePoint {x : 0, y : -1}, 
+    W => FreePoint {x : -1, y : 0}, 
   }
 }
 

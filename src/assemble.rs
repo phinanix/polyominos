@@ -39,6 +39,13 @@ ominos, iterate an omino's perimeter
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub struct Edge(FreePoint, Dir);
 
+impl Edge {
+  pub fn flip(self) -> Self {
+    match self {
+      Edge(pt, d) => Edge(offset_in_dir(pt, d), d.flip())
+    }
+  }
+}
 
 pub fn iter_perimeter(fps: &FreePointList) -> Vec<Edge> {
   let points_occupied : HashSet<FreePoint> = fps.iter().cloned().collect(); 
@@ -141,7 +148,7 @@ pub fn align_perim(omino: &FreePointList, src: Edge, Edge(target_point, target_d
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct Configuration{
+pub struct ConfigurationTranslation{
   pts: FreePointList, //invariant: sorted
   translations: SmallVec<[FreePoint; 4]>
 }
@@ -161,9 +168,9 @@ pub fn merge_pts(pts : &FreePointList, mut new_pts : FreePointList) -> Option<Fr
 
 }
 
-pub fn next_point_to_cover(pts: &FreePointList) -> Option<(Dir, FreePoint)> {
-  let pts_to_cover = [N, E, S, W].map(|d|(d, offset_in_dir(FreePoint{x: 0, y: 0}, d)));
-  pts_to_cover.iter().copied().filter(|(d,pt)|!pts.contains(pt)).next()
+pub fn next_edge_to_cover(pts: &FreePointList) -> Option<Edge> { 
+  let edges_to_cover = [N, E, S, W].map(|d|Edge(offset_in_dir(FreePoint{x: 0, y: 0}, d), d.flip()));
+  edges_to_cover.iter().copied().filter(|Edge(pt, _d)|!pts.contains(pt)).next()
 }
 
 pub fn translate_a_to_b(pts: FreePointList, a: FreePoint, b: FreePoint) 
@@ -175,17 +182,17 @@ pub fn translate_a_to_b(pts: FreePointList, a: FreePoint, b: FreePoint)
   (translate_omino(pts, translation), translation)
 }
 
-pub fn add_children(omino: &FreePointList, perimeter: &Vec<Edge>,
-  stack: &mut Vec<Configuration>, Configuration { pts, translations }: Configuration)
+pub fn add_translation_children(omino: &FreePointList, perimeter: &Vec<Edge>,
+  stack: &mut Vec<ConfigurationTranslation>, ConfigurationTranslation { pts, translations }: ConfigurationTranslation)
   -> Option<SmallVec<[FreePoint; 4]>> 
 {
   /* adds the children of the given configuration to the stack, and returns None, 
   unless a successful configuration is found, in which case it is returned */
 
-  let (dir_to_cover, pt_to_cover) = next_point_to_cover(&pts).unwrap();
+  let Edge(pt_to_cover, dir_to_cover) = next_edge_to_cover(&pts).unwrap();
   // dbg!(&dir_to_cover, &pt_to_cover);
   let mut possible_edges = perimeter.iter()
-    .filter(|&&(Edge(fp, d))| d == dir_to_cover.flip());
+    .filter(|&&(Edge(fp, d))| d == dir_to_cover);
   let mut translated_ominos_and_translations = possible_edges
     .map(|&(Edge(src_pt, _src_dir))| translate_a_to_b(omino.clone(), src_pt, pt_to_cover));
   for (translated_omino, translation) in translated_ominos_and_translations {
@@ -193,11 +200,11 @@ pub fn add_children(omino: &FreePointList, perimeter: &Vec<Edge>,
     if let Some(merged_pts) = merge_pts(&pts, translated_omino) {
       let mut new_translations = translations.clone();
       new_translations.push(translation);
-      if let None = next_point_to_cover(&merged_pts) {
+      if let None = next_edge_to_cover(&merged_pts) {
         //we win, return that
         return Some(new_translations)
       } else {
-        let new_config = Configuration{pts: merged_pts, translations: new_translations};
+        let new_config = ConfigurationTranslation{pts: merged_pts, translations: new_translations};
         // dbg!("new config:", &new_config);
         stack.push(new_config);
       }
@@ -210,18 +217,75 @@ pub fn add_children(omino: &FreePointList, perimeter: &Vec<Edge>,
 pub fn find_arrangement_translation(omino: &FreePointList) -> Option<SmallVec<[FreePoint;4]>> {
   /*
   Given an omino, searches for a set of translations which arrange that omino to 
-  surround   the hole (0,0) with overlap, or returns None if there are none
+  surround the hole (0,0) with no overlap, or returns None if there are none
 
   to do this, we progressively try to cover the sides of the hole in CW order 
   starting with N via a depth first search, backtracking whenever there is no
   way to proceed. Since we are only looking at translations and not rotations, 
   to cover the N side of the hole, we must use a S facing edge, and so on. 
    */
-  let mut stack : Vec<Configuration> = vec![Configuration::default()]; //todo, empty configuration
+  let mut stack : Vec<ConfigurationTranslation> = vec![ConfigurationTranslation::default()]; //todo, empty configuration
   let perimeter = iter_perimeter(omino);
   while let Some(config) = stack.pop() {
     // dbg!(&config);
-    match add_children(omino, &perimeter, &mut stack, config) {
+    match add_translation_children(omino, &perimeter, &mut stack, config) {
+      Some(ans) => return Some(ans), 
+      None => (),
+    }
+  }
+  None
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub struct Configuration{
+  pts: FreePointList, //invariant: sorted
+  edge_pairs: SmallVec<[(Edge, Edge); 4]>
+}
+
+pub fn add_tr_children(omino: &FreePointList, perimeter: &Vec<Edge>,
+  stack: &mut Vec<Configuration>, Configuration { pts, edge_pairs }: Configuration)
+  -> Option<SmallVec<[(Edge, Edge); 4]>> 
+{
+  /* adds the children of the given configuration to the stack, and returns None, 
+  unless a successful configuration is found, in which case it is returned */
+
+  let edge_to_cover = next_edge_to_cover(&pts).unwrap();
+  //dbg!(edge_to_cover);
+  let mut possible_ominos_and_edge_pairs = perimeter.iter().map(|&src_edge| 
+    (align_perim(omino, src_edge, edge_to_cover), (src_edge, edge_to_cover)));
+  for (moved_omino, edge_pair) in possible_ominos_and_edge_pairs {
+    if let Some(merged_pts) = merge_pts(&pts, moved_omino) {
+      let mut new_pairs = edge_pairs.clone();
+      new_pairs.push(edge_pair);
+      if let None = next_edge_to_cover(&merged_pts) {
+        //we win, return that
+        return Some(edge_pairs)
+      } else {
+        let new_config = Configuration{pts: merged_pts, edge_pairs: new_pairs};
+        // dbg!("new config:", &new_config);
+        stack.push(new_config);
+      }
+    }
+  }
+
+  None
+}
+
+pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);4]>> {
+  /*
+  Given an omino, searches for a set of translation+rotationss which arrange 
+  that omino to surround the hole (0,0) with nooverlap, or returns None if 
+  there are none
+
+  to do this, we progressively try to cover the sides of the hole in CW order 
+  starting with N via a depth first search, backtracking whenever there is no
+  way to proceed. 
+   */
+  let mut stack = vec![Configuration::default()]; //todo, empty configuration
+  let perimeter = iter_perimeter(omino);
+  while let Some(config) = stack.pop() {
+    //dbg!(&config);
+    match add_tr_children(omino, &perimeter, &mut stack, config) {
       Some(ans) => return Some(ans), 
       None => (),
     }

@@ -208,7 +208,7 @@ pub struct FreePoint{
   pub x: i8, pub y: i8
 }
 
-pub type FreePointList = SmallVec<[FreePoint; 8]>;
+pub type FreePointList = SmallVec<[FreePoint; 16]>;
 
 impl From<Point> for FreePoint {
   fn from(Point { x, y }: Point) -> Self {

@@ -110,6 +110,12 @@ pub fn rotational_deduplicate(ominos: &Vec<FreePointList>) -> Vec<FreePointList>
 
   out 
 }
+
+pub fn rotate_omino(omino: &FreePointList, rotate_amt: u8) -> FreePointList {
+  //invariant: rotate_amt is 0,1,2,3 and represents the number of cw turns
+  todo!()
+}
+
 pub fn rotate_omino_edge(omino: &FreePointList, Edge(src_point, src_dir): Edge, target_dir: Dir) 
   -> (FreePointList, FreePoint) 
 {
@@ -168,8 +174,9 @@ pub fn merge_pts_slow(pts : &FreePointList, mut new_pts : FreePointList) -> Opti
   }
 
 }
+
 pub fn merge_pts(pts : &FreePointList, mut new_pts : FreePointList) -> Option<FreePointList> {
-   /* invariants: pts is sorted. new_pts is not sorted. 
+  /* invariants: pts is sorted. new_pts is not sorted. 
   if pts and new_pts overlap, then return None. 
   else, return a new sorted list of pts that is their union. 
   */
@@ -200,6 +207,7 @@ pub fn merge_pts(pts : &FreePointList, mut new_pts : FreePointList) -> Option<Fr
 }
 
 pub fn next_edge_to_cover(pts: &FreePointList) -> Option<Edge> { 
+  //returns one of [((0, 1), S), ((1, 0), W), ((0, -1), N), ((-1, 0), E)]
   let edges_to_cover = [N, E, S, W].map(|d|Edge(offset_in_dir(FreePoint{x: 0, y: 0}, d), d.flip()));
   edges_to_cover.iter().copied().filter(|Edge(pt, _d)|!pts.contains(pt)).next()
 }
@@ -273,7 +281,7 @@ pub struct Configuration{
   edge_pairs: SmallVec<[(Edge, Edge); 4]>
 }
 
-pub fn add_tr_children(omino: &FreePointList, perimeter: &Vec<Edge>,
+pub fn add_tr_children(ominos: &[FreePointList; 4], perimeters: &[Vec<Edge>; 4],
   stack: &mut Vec<Configuration>, Configuration { pts, edge_pairs }: Configuration)
   -> Option<SmallVec<[(Edge, Edge); 4]>> 
 {
@@ -281,9 +289,25 @@ pub fn add_tr_children(omino: &FreePointList, perimeter: &Vec<Edge>,
   unless a successful configuration is found, in which case it is returned */
 
   let edge_to_cover = next_edge_to_cover(&pts).unwrap();
+  
   //dbg!(edge_to_cover);
-  let mut possible_ominos_and_edge_pairs = perimeter.iter().map(|&src_edge| 
-    (align_perim(omino, src_edge, edge_to_cover), (src_edge, edge_to_cover)));
+
+  fn extract_possible_pairs<'a>(omino: &'a FreePointList, perimeter: &'a Vec<Edge>, edge_to_cover: Edge) 
+  -> impl Iterator<Item = (FreePointList, (Edge, Edge))> + 'a {
+    let Edge(pt_to_cover, dir_to_cover) = edge_to_cover;
+    perimeter.iter().filter_map(move |&(Edge(fp, d))| {
+      if (d == dir_to_cover) {
+        Some((translate_a_to_b(omino.clone(), fp, pt_to_cover).0, 
+              (Edge(fp, d), edge_to_cover)))
+      } else {
+        None 
+      }
+    })
+  }
+
+  let mut possible_ominos_and_edge_pairs = (0..=3).flat_map(|i|
+    extract_possible_pairs(&ominos[i], &perimeters[i], edge_to_cover));
+
   for (moved_omino, edge_pair) in possible_ominos_and_edge_pairs {
     if let Some(merged_pts) = merge_pts(&pts, moved_omino) {
       let mut new_pairs = edge_pairs.clone();
@@ -312,11 +336,12 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
   starting with N via a depth first search, backtracking whenever there is no
   way to proceed. 
    */
-  let mut stack = vec![Configuration::default()]; //todo, empty configuration
-  let perimeter = iter_perimeter(omino);
+  let mut stack = vec![Configuration::default()];
+  let rotated_ominos = [0,1,2,3].map(|amt|rotate_omino(omino, amt));
+  let perimeters = rotated_ominos.clone().map(|omino|iter_perimeter(&omino));
   while let Some(config) = stack.pop() {
     //dbg!(&config);
-    match add_tr_children(omino, &perimeter, &mut stack, config) {
+    match add_tr_children(&rotated_ominos, &perimeters, &mut stack, config) {
       Some(ans) => return Some(ans), 
       None => (),
     }

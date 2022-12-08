@@ -1,4 +1,4 @@
-
+#![allow(unused)] 
 mod omino;
 mod assemble;
 
@@ -23,7 +23,7 @@ fn main() {
     println!("{}-ominoes, count: {} untranslateable: {}",
       i, num_ominos, untranslateable_ominos.len());
     if untranslateable_ominos.len() > 0 {
-    dbg!(rotational_deduplicate(&untranslateable_ominos));
+      dbg!(rotational_deduplicate(&untranslateable_ominos));
     }
   }
 

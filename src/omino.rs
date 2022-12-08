@@ -261,8 +261,8 @@ pub fn compare_points(FreePoint { x: px, y: py }: &FreePoint, FreePoint { x: qx,
   }
 }
 
-pub fn translate_omino(omino: FreePointList, translation: FreePoint) -> FreePointList {
-  omino.into_iter().map(|pt| sum_points(pt, translation)).collect()
+pub fn translate_omino(omino: &FreePointList, translation: FreePoint) -> FreePointList {
+  omino.iter().map(|&pt| sum_points(pt, translation)).collect()
 }
 
 pub fn invert_point(FreePoint { x, y }: FreePoint) -> FreePoint {
@@ -275,7 +275,7 @@ pub fn normalize_omino(omino: FreePointList) -> FreePointList {
   let min_point = *omino.iter().min_by(|p, q|compare_points(p, q)).unwrap();
   let translation = invert_point(min_point);
   //dbg!(&translation);
-  let mut translated_omino = translate_omino(omino, translation);
+  let mut translated_omino = translate_omino(&omino, translation);
   translated_omino.sort();
   //dbg!(&translated_omino);
   translated_omino

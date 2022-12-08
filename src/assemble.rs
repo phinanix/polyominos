@@ -48,6 +48,41 @@ impl Edge {
   }
 }
 
+pub fn iter_perimeter_slow(fps: &FreePointList) -> Vec<Edge> {
+  //precond: fps is sorted
+  let mut neighbors = vec![]; 
+  for &pt in fps {
+    for (neighbor, dir) in pt.get_neighbors_with_directions() {
+        neighbors.push(Edge(pt, dir));
+    }
+  }
+  neighbors.sort_unstable_by_key(|&Edge(pt, dir)| pt);
+
+  /* invariants: pts and new_pts are sorted
+  if pts and new_pts overlap, then return None. 
+  else, return a new sorted list of pts that is their union. 
+  */
+  let mut out = vec![];
+  let mut fps_index = 0; 
+  let mut neighbors_index = 0;
+  while fps_index < fps.len() && neighbors_index < neighbors.len() {
+    match neighbors[neighbors_index].0.cmp(&fps[fps_index]) {
+      Equal => neighbors_index += 1, 
+      Less => {out.push(neighbors[neighbors_index]); neighbors_index += 1},
+      Greater => {fps_index += 1},
+    }
+  }
+
+  while neighbors_index < neighbors.len() {
+    out.push(neighbors[neighbors_index]);
+    neighbors_index += 1; 
+  }
+  assert!(out.len() <= neighbors.len());
+  
+  out
+
+}
+
 pub fn iter_perimeter(fps: &FreePointList) -> Vec<Edge> {
   let points_occupied : HashSet<FreePoint> = fps.iter().cloned().collect(); 
   let mut out = vec![];
@@ -159,7 +194,7 @@ pub fn align_perim(omino: &FreePointList, src: Edge, Edge(target_point, target_d
 {
   let (rotated_omino, rotated_src_pt) = rotate_omino_edge(omino, src, target_dir);
   let translation = translation_of_a_to_b(rotated_src_pt, target_point);
-  return translate_omino(rotated_omino, translation)
+  return translate_omino(&rotated_omino, translation)
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
@@ -219,7 +254,7 @@ pub fn next_edge_to_cover(pts: &FreePointList) -> Option<Edge> {
   edges_to_cover.iter().copied().filter(|Edge(pt, _d)|!pts.contains(pt)).next()
 }
 
-pub fn translate_a_to_b(pts: FreePointList, a: FreePoint, b: FreePoint) 
+pub fn translate_a_to_b(pts: &FreePointList, a: FreePoint, b: FreePoint) 
   -> (FreePointList, FreePoint) 
 {
   // dbg!("translating", a, b);
@@ -240,7 +275,7 @@ pub fn add_translation_children(omino: &FreePointList, perimeter: &Vec<Edge>,
   let mut possible_edges = perimeter.iter()
     .filter(|&&(Edge(fp, d))| d == dir_to_cover);
   let mut translated_ominos_and_translations = possible_edges
-    .map(|&(Edge(src_pt, _src_dir))| translate_a_to_b(omino.clone(), src_pt, pt_to_cover));
+    .map(|&(Edge(src_pt, _src_dir))| translate_a_to_b(&omino, src_pt, pt_to_cover));
   for (translated_omino, translation) in translated_ominos_and_translations {
     // dbg!(&translated_omino, &translation);
     if let Some(merged_pts) = merge_pts(&pts, translated_omino) {
@@ -304,7 +339,7 @@ pub fn add_tr_children(ominos: &[FreePointList; 4], perimeters: &[Vec<Edge>; 4],
     let Edge(pt_to_cover, dir_to_cover) = edge_to_cover;
     perimeter.iter().filter_map(move |&(Edge(fp, d))| {
       if (d == dir_to_cover) {
-        Some((translate_a_to_b(omino.clone(), fp, pt_to_cover).0, 
+        Some((translate_a_to_b(omino, fp, pt_to_cover).0, 
               (Edge(fp, d), edge_to_cover)))
       } else {
         None 
@@ -346,7 +381,7 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
   let mut stack = vec![Configuration::default()];
   let mut rotated_ominos = [0,1,2,3].map(|amt|rotate_omino(omino, amt));
   for i in (0..=3) {rotated_ominos[i].sort_unstable()}
-  let perimeters = rotated_ominos.clone().map(|omino|iter_perimeter(&omino));
+  let perimeters = rotated_ominos.clone().map(|omino|iter_perimeter_slow(&omino));
   while let Some(config) = stack.pop() {
     //dbg!(&config);
     match add_tr_children(&rotated_ominos, &perimeters, &mut stack, config) {

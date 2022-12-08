@@ -113,7 +113,15 @@ pub fn rotational_deduplicate(ominos: &Vec<FreePointList>) -> Vec<FreePointList>
 
 pub fn rotate_omino(omino: &FreePointList, rotate_amt: u8) -> FreePointList {
   //invariant: rotate_amt is 0,1,2,3 and represents the number of cw turns
-  todo!()
+  let rotate_fn = match rotate_amt {
+    0 => rotate_0,
+    1 => rotate_cw, 
+    2 => rotate_180,
+    3 => rotate_ccw, 
+    _ => unreachable!("rotate amount not <4")
+  };
+
+  omino.iter().map(|&p| rotate_fn(p)).collect()
 }
 
 pub fn rotate_omino_edge(omino: &FreePointList, Edge(src_point, src_dir): Edge, target_dir: Dir) 
@@ -176,12 +184,11 @@ pub fn merge_pts_slow(pts : &FreePointList, mut new_pts : FreePointList) -> Opti
 }
 
 pub fn merge_pts(pts : &FreePointList, mut new_pts : FreePointList) -> Option<FreePointList> {
-  /* invariants: pts is sorted. new_pts is not sorted. 
+  /* invariants: pts and new_pts are sorted
   if pts and new_pts overlap, then return None. 
   else, return a new sorted list of pts that is their union. 
   */
   let mut out = smallvec![];
-  new_pts.sort_unstable();
   let mut pts_index = 0; 
   let mut new_pts_index = 0;
   while pts_index < pts.len() && new_pts_index < new_pts.len() {
@@ -337,7 +344,8 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
   way to proceed. 
    */
   let mut stack = vec![Configuration::default()];
-  let rotated_ominos = [0,1,2,3].map(|amt|rotate_omino(omino, amt));
+  let mut rotated_ominos = [0,1,2,3].map(|amt|rotate_omino(omino, amt));
+  for i in (0..=3) {rotated_ominos[i].sort_unstable()}
   let perimeters = rotated_ominos.clone().map(|omino|iter_perimeter(&omino));
   while let Some(config) = stack.pop() {
     //dbg!(&config);

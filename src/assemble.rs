@@ -532,6 +532,12 @@ proptest! {
   fn tranlation_preserves_sorted(omino in omino_strategy(10), point in point_strategy()) {
     todo!()
   }
+
+  #[test]
+  fn test_merge_pts_correct() {
+    //idk exactly how at 11pm
+    todo!()
+  }
   // #[test]
   // fn i64_is_never_negative(a: i64) {
   //     prop_assert!(a >= 0);

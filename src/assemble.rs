@@ -53,28 +53,24 @@ pub fn iter_perimeter_slow(fps: &FreePointList) -> Vec<Edge> {
   let mut neighbors = vec![]; 
   for &pt in fps {
     for (neighbor, dir) in pt.get_neighbors_with_directions() {
-        neighbors.push(Edge(pt, dir));
+        neighbors.push((neighbor, Edge(pt, dir)));
     }
   }
-  neighbors.sort_unstable_by_key(|&Edge(pt, dir)| pt);
+  neighbors.sort_unstable_by_key(|&(neighbor, Edge(pt, dir))| neighbor);
 
-  /* invariants: pts and new_pts are sorted
-  if pts and new_pts overlap, then return None. 
-  else, return a new sorted list of pts that is their union. 
-  */
   let mut out = vec![];
   let mut fps_index = 0; 
   let mut neighbors_index = 0;
   while fps_index < fps.len() && neighbors_index < neighbors.len() {
     match neighbors[neighbors_index].0.cmp(&fps[fps_index]) {
       Equal => neighbors_index += 1, 
-      Less => {out.push(neighbors[neighbors_index]); neighbors_index += 1},
+      Less => {out.push(neighbors[neighbors_index].1); neighbors_index += 1},
       Greater => {fps_index += 1},
     }
   }
 
   while neighbors_index < neighbors.len() {
-    out.push(neighbors[neighbors_index]);
+    out.push(neighbors[neighbors_index].1);
     neighbors_index += 1; 
   }
   assert!(out.len() <= neighbors.len());
@@ -120,6 +116,14 @@ pub fn rotate_ccw(FreePoint { x, y }: FreePoint) -> FreePoint {
 
 pub fn rotate_180(FreePoint { x, y }: FreePoint) -> FreePoint {
   FreePoint { x: -x, y: -y }  
+}
+
+pub fn mirror_x_axis(FreePoint { x, y }: FreePoint) -> FreePoint {
+  FreePoint { x: x, y: -y }  
+}
+
+pub fn mirror_y_axis(FreePoint { x, y }: FreePoint) -> FreePoint {
+  FreePoint { x: -x, y: y }  
 }
 
 pub fn rotational_equivalence(omino: &FreePointList, omino2: &FreePointList) -> bool {
@@ -381,7 +385,7 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
   let mut stack = vec![Configuration::default()];
   let mut rotated_ominos = [0,1,2,3].map(|amt|rotate_omino(omino, amt));
   for i in (0..=3) {rotated_ominos[i].sort_unstable()}
-  let perimeters = rotated_ominos.clone().map(|omino|iter_perimeter_slow(&omino));
+  let perimeters = rotated_ominos.clone().map(|omino|iter_perimeter(&omino));
   while let Some(config) = stack.pop() {
     //dbg!(&config);
     match add_tr_children(&rotated_ominos, &perimeters, &mut stack, config) {
@@ -390,10 +394,12 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
     }
   }
   None
-}
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
 
 pub mod test {
-  use super::*;
+  use itertools::Itertools;
+
+use super::*;
 
     fn point_assert(fp: FreePoint) {
       assert_eq!(fp, rotate_180(rotate_180(fp)));
@@ -406,6 +412,36 @@ pub mod test {
     fn point_fiddling() {
       let pts = [(0,0), (1,3), (4,4), (-3, 6), (3, -5), (20, 0)].map(|(x,y)| FreePoint{x, y});
       pts.map(|p|point_assert(p));
+    }
+
+    #[test]
+    fn iter_perimeter_slow_is_same() {
+      let pts : FreePointList = [(0,0)].map(|(x,y)| FreePoint{x, y}).into_iter().collect();
+      let mut per1 = iter_perimeter(&pts);
+      per1.sort();
+      let mut per2 = iter_perimeter_slow(&pts);
+      per2.sort();
+      assert_eq!(per1, per2); 
+    }
+
+    fn unarrangeable25() -> FreePointList {
+      let pts = vec![(0, 0), (0, 1), (0, 2), (0, 3), (1, 3), (2, 3), (1, 0), (2, 0), (3, 0), (3, 1)].into_iter().map(|(x,y)|FreePoint{x, y}).collect_vec();
+      let mut out : HashSet<FreePoint> = HashSet::default();
+      for pt in pts {
+        let flips = [pt, mirror_x_axis(pt), mirror_y_axis(pt), mirror_x_axis(mirror_y_axis(pt))];
+        for flip in flips {out.insert(flip);}
+      }
+      out.into_iter().collect()
+    }
+
+    #[test]
+    fn unarrange_not_arrange() {
+      let mut un25 = unarrangeable25();
+      //un25.sort();
+      //fails without the sort but not with it
+      dbg!(&un25);
+      assert_eq!(find_arrangement(&un25), None);
+      assert_eq!(find_arrangement_translation(&un25), None);
     }
 
 }

@@ -1,12 +1,17 @@
 #![allow(unused)]
 
+
+use itertools::sorted;
 use smallvec::{smallvec, SmallVec};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use Ordering::*;
+use proptest::{prelude::*, sample::select};
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 
 use crate::omino::{
-  normalize_omino, offset_in_dir, sum_points, translate_omino, Dir, FreePoint, FreePointList,
+  normalize_omino, offset_in_dir, sum_points, translate_omino, Dir, FreePoint, FreePointList, enumerate_polyominos, PointList,
 };
 use Dir::*;
 
@@ -51,6 +56,7 @@ impl Edge {
 }
 
 pub fn iter_perimeter_slow(fps: &FreePointList) -> Vec<Edge> {
+  //not only will this kill you, it will hurt the whole time you're dying :P
   //precond: fps is sorted
   let mut neighbors = vec![];
   for &pt in fps {
@@ -231,6 +237,9 @@ pub fn merge_pts(pts: &FreePointList, mut new_pts: FreePointList) -> Option<Free
   if pts and new_pts overlap, then return None.
   else, return a new sorted list of pts that is their union.
   */
+  assert!(pts.is_sorted());
+  assert!(new_pts.is_sorted());
+  
   let mut out = smallvec![];
   let mut pts_index = 0;
   let mut new_pts_index = 0;
@@ -281,7 +290,7 @@ pub fn translate_a_to_b(
 }
 
 pub fn add_translation_children(
-  omino: &FreePointList,
+  omino: &FreePointList, //invariant: sorted
   perimeter: &Vec<Edge>,
   stack: &mut Vec<ConfigurationTranslation>,
   ConfigurationTranslation { pts, translations }: ConfigurationTranslation,
@@ -324,11 +333,11 @@ pub fn find_arrangement_translation(omino: &FreePointList) -> Option<SmallVec<[F
   way to proceed. Since we are only looking at translations and not rotations,
   to cover the N side of the hole, we must use a S facing edge, and so on.
    */
-  let mut stack: Vec<ConfigurationTranslation> = vec![ConfigurationTranslation::default()]; //todo, empty configuration
+  let mut stack: Vec<ConfigurationTranslation> = vec![ConfigurationTranslation::default()]; 
   let perimeter = iter_perimeter(omino);
+  let sorted_omino : FreePointList = sorted(omino.iter()).map(|&x|x).collect();
   while let Some(config) = stack.pop() {
-    // dbg!(&config);
-    match add_translation_children(omino, &perimeter, &mut stack, config) {
+    match add_translation_children(&sorted_omino, &perimeter, &mut stack, config) {
       Some(ans) => return Some(ans),
       None => (),
     }
@@ -408,7 +417,6 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
   }
   let perimeters = rotated_ominos.clone().map(|omino| iter_perimeter(&omino));
   while let Some(config) = stack.pop() {
-    //dbg!(&config);
     match add_tr_children(&rotated_ominos, &perimeters, &mut stack, config) {
       Some(ans) => return Some(ans),
       None => (),
@@ -420,7 +428,9 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
 pub mod test {
   use itertools::Itertools;
 
-  use super::*;
+  use crate::omino::Grid;
+
+use super::*;
 
   fn point_assert(fp: FreePoint) {
     assert_eq!(fp, rotate_180(rotate_180(fp)));
@@ -463,10 +473,67 @@ pub mod test {
   #[test]
   fn unarrange_not_arrange() {
     let mut un25 = unarrangeable25();
-    //un25.sort();
-    //fails without the sort but not with it
     dbg!(&un25);
+    let un25_grid : Grid = un25.clone().into();
+    dbg!(&un25_grid);
+    assert_eq!(un25.len(), 25);
     assert_eq!(find_arrangement(&un25), None);
     assert_eq!(find_arrangement_translation(&un25), None);
   }
+}
+
+fn omino_strategy(size : u8) -> impl Strategy<Value = FreePointList> {
+  let ominos = enumerate_polyominos(size); 
+  fn pl_to_fpl(pl:PointList) -> FreePointList {
+    pl.into_iter().map(|x|x.into()).collect()
+  }
+  return select(ominos).prop_map(pl_to_fpl)
+}
+
+fn point_strategy() -> impl Strategy<Value = FreePoint> {
+  (any::<i8>(), any::<i8>()).prop_map(|(x, y)| FreePoint{x, y})
+}
+
+fn shuffle_omino(fps: &FreePointList) -> FreePointList {
+  let mut out = fps.clone();
+  let mut rng = thread_rng();
+  out.shuffle(&mut rng);
+  out
+}
+
+proptest! {
+  #[test]
+  fn i64_abs_is_never_negative(a: i64) {
+      // This actually fails if a == i64::MIN, but randomly picking one
+      // specific value out of 2⁶⁴ is overwhelmingly unlikely.
+      assert!(a.abs() >= 0);
+  }
+
+  #[test]
+  fn small_ominos_are_arrangeable(omino in omino_strategy(10)) {
+    let fps = omino.into_iter().map(|x|x.into()).collect();
+    match find_arrangement(&fps) {
+      Some(_) => (),
+      None => panic!("non arrangeable: {:?}", fps)
+    }
+  }
+
+  #[test]
+  fn perm_invariant_perimeter(omino in omino_strategy(10)) {
+    let mut original_perimeter = iter_perimeter(&omino);
+    original_perimeter.sort();
+    let shuffled_omino = shuffle_omino(&omino);
+    let mut new_perimeter = iter_perimeter(&shuffled_omino);
+    new_perimeter.sort();
+    prop_assert_eq!(original_perimeter, new_perimeter)
+  }
+  
+  #[test]
+  fn tranlation_preserves_sorted(omino in omino_strategy(10), point in point_strategy()) {
+    todo!()
+  }
+  // #[test]
+  // fn i64_is_never_negative(a: i64) {
+  //     prop_assert!(a >= 0);
+  // }
 }

@@ -376,6 +376,7 @@ dependencies = [
  "itertools",
  "pprof",
  "proptest",
+ "rand",
  "smallvec",
 ]
 

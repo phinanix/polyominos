@@ -1,4 +1,5 @@
 #![allow(unused)]
+#![feature(is_sorted)]
 mod assemble;
 mod omino;
 
@@ -11,29 +12,29 @@ use crate::{
 };
 
 fn main() {
-  // for i in 16..=16 {
-  //   println!("{}-ominoes: {}", i, enumerate_polyominos(i).len());
-  // }
-
-  let lim = 12;
-  for i in lim..=lim {
-    let ominos = enumerate_polyominos(i);
-    let num_ominos = ominos.len();
-    let untranslateable_ominos = ominos
-      .into_iter()
-      .map(|pts| pts.into_iter().map(|pt| pt.into()).collect())
-      .filter(|omino| find_arrangement(omino).is_none())
-      .collect_vec();
-    println!(
-      "{}-ominoes, count: {} untranslateable: {}",
-      i,
-      num_ominos,
-      untranslateable_ominos.len()
-    );
-    if untranslateable_ominos.len() > 0 {
-      dbg!(rotational_deduplicate(&untranslateable_ominos));
-    }
+  for i in 1..=10 {
+    println!("{}-ominoes: {}", i, enumerate_polyominos(i).len());
   }
+
+  // let lim = 12;
+  // for i in lim..=lim {
+  //   let ominos = enumerate_polyominos(i);
+  //   let num_ominos = ominos.len();
+  //   let untranslateable_ominos = ominos
+  //     .into_iter()
+  //     .map(|pts| pts.into_iter().map(|pt| pt.into()).collect())
+  //     .filter(|omino| find_arrangement(omino).is_none())
+  //     .collect_vec();
+  //   println!(
+  //     "{}-ominoes, count: {} untranslateable: {}",
+  //     i,
+  //     num_ominos,
+  //     untranslateable_ominos.len()
+  //   );
+  //   if untranslateable_ominos.len() > 0 {
+  //     dbg!(rotational_deduplicate(&untranslateable_ominos));
+  //   }
+  // }
 }
 //num ominos, fixed:
 /*

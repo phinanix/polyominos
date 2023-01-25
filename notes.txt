@@ -1,0 +1,21 @@
+Profile before sort rewrite:
+43% merge_points (of which 24% sort_unstable)
+24% align_perimeter 
+10% next_edge_to_cover
+9% iter_perimeter
+5% find_arrangement (??)
+total accounted for: 91%
+
+Profile after sort rewrite:
+29% merge_points 
+22% iter_perimeter
+21% extract_possible_pairs (7% clone -> fix?)
+8% next_edge_to_cover
+5% find_arrangement (??)
+1% sort_unstable (child of find_arrangement)
+total accounted for: 86%
+
+merge_points -> minus 14% 
+iter perimeter -> plus 13% 
+align perimeter becomes extract_possible_pairs -> minus 3%
+next_edge_to_cover largely unchanged

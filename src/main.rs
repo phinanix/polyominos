@@ -5,6 +5,7 @@ mod omino;
 
 use assemble::find_arrangement_translation;
 use itertools::Itertools;
+use std::time::SystemTime;
 
 use crate::{
   assemble::{find_arrangement, has_rotated_corner_arrangement, rotational_deduplicate},
@@ -18,7 +19,8 @@ fn main() {
 
   let lim = 13;
   // for i in 5..=6 {
-  for i in lim..=lim {
+  for i in 1..=14 {
+    let start = SystemTime::now();
     let ominos = enumerate_polyominos(i);
     let num_ominos = ominos.len();
     let fpl_ominos =
@@ -30,11 +32,13 @@ fn main() {
 
     let untranslateable_ominos =
       fpl_ominos.into_iter().filter(|omino| find_arrangement(omino).is_none()).collect_vec();
+    let end = SystemTime::now();
     println!(
-      "{}-ominoes, count: {} untranslateable: {}",
+      "{}-ominoes, count: {} untranslateable: {}, took {} seconds per 100k ominos",
       i,
       num_ominos,
-      untranslateable_ominos.len()
+      untranslateable_ominos.len(),
+      (end.duration_since(start).unwrap().as_secs_f64() / num_ominos as f64) * 100_000.0
     );
     if untranslateable_ominos.len() > 0 {
       dbg!(rotational_deduplicate(&untranslateable_ominos));

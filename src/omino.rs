@@ -211,13 +211,15 @@ pub struct FreePoint {
 pub type FreePointList = SmallVec<[FreePoint; 16]>;
 
 impl From<FreePointList> for Grid {
-  fn from(point_list : FreePointList) -> Grid {
-    let left_bottom = point_list.iter().min_by(
-      |FreePoint{x:x1, y:y1}, FreePoint{x:x2, y:y2}| (y1, x1).cmp(&(y2, x2))).unwrap();
+  fn from(point_list: FreePointList) -> Grid {
+    let left_bottom = point_list
+      .iter()
+      .min_by(|FreePoint { x: x1, y: y1 }, FreePoint { x: x2, y: y2 }| (y1, x1).cmp(&(y2, x2)))
+      .unwrap();
     let translated_omino = translate_omino(&point_list, invert_point(*left_bottom));
     let mut out = Grid::default();
     for FreePoint { x, y } in translated_omino {
-      let point = Point {x, y: y.try_into().unwrap()};
+      let point = Point { x, y: y.try_into().unwrap() };
       out.set_pos(point, Occupied);
     }
     out

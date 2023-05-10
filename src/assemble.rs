@@ -414,7 +414,10 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
   let mut stack = vec![Configuration::default()];
   let mut rotated_ominos = [0, 1, 2, 3].map(|amt| rotate_omino(omino, amt));
   for i in (0..=3) {
-    rotated_ominos[i].sort_unstable()
+    rotated_ominos[i].sort_unstable();
+    if has_corner_arrangement(&rotated_ominos[i]) {
+      return Some(smallvec![]);
+    }
   }
   let perimeters = rotated_ominos.clone().map(|omino| iter_perimeter(&omino));
   while let Some(config) = stack.pop() {
@@ -424,6 +427,28 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
     }
   }
   None
+}
+
+// fn get_leftmost(omino: &[FreePoint]) -> FreePointList {
+//   let out = smallvec![omino[0]];
+//   out
+// }
+
+pub fn has_rotated_corner_arrangement(omino: &FreePointList) -> bool {
+  let mut rotated_ominos = [0, 1, 2, 3].map(|amt| rotate_omino(omino, amt));
+  for i in (0..=3) {
+    rotated_ominos[i].sort_unstable();
+    // dbg!(&rotated_ominos[i]);
+    if has_corner_arrangement(&rotated_ominos[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+pub fn has_corner_arrangement(omino: &[FreePoint]) -> bool {
+  let FreePoint { x: corner_x, y: corner_y } = omino[0];
+  !omino.iter().any(|FreePoint { x, y }| *y < corner_y)
 }
 
 pub mod test {

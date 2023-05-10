@@ -7,8 +7,8 @@ use assemble::find_arrangement_translation;
 use itertools::Itertools;
 
 use crate::{
-  assemble::{find_arrangement, rotational_deduplicate},
-  omino::enumerate_polyominos,
+  assemble::{find_arrangement, has_rotated_corner_arrangement, rotational_deduplicate},
+  omino::{enumerate_polyominos, Grid},
 };
 
 fn main() {
@@ -16,15 +16,20 @@ fn main() {
   //   println!("{}-ominoes: {}", i, enumerate_polyominos(i).len());
   // }
 
-  let lim = 12;
+  let lim = 13;
+  // for i in 5..=6 {
   for i in lim..=lim {
     let ominos = enumerate_polyominos(i);
     let num_ominos = ominos.len();
-    let untranslateable_ominos = ominos
-      .into_iter()
-      .map(|pts| pts.into_iter().map(|pt| pt.into()).collect())
-      .filter(|omino| find_arrangement(omino).is_none())
-      .collect_vec();
+    let fpl_ominos =
+      ominos.into_iter().map(|pts| pts.into_iter().map(|pt| pt.into()).collect()).collect_vec();
+    // let corner_arrangements =
+    //   fpl_ominos.iter().filter(|omino| !has_rotated_corner_arrangement(omino)).collect_vec();
+    // dbg!(&corner_arrangements.iter().map(|fpl| Grid::from((**fpl).clone())).collect_vec());
+    // println!("{}-ominoes, count: {} corner_able: {}", i, num_ominos, corner_arrangements.len());
+
+    let untranslateable_ominos =
+      fpl_ominos.into_iter().filter(|omino| find_arrangement(omino).is_none()).collect_vec();
     println!(
       "{}-ominoes, count: {} untranslateable: {}",
       i,

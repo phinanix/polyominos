@@ -534,12 +534,14 @@ proptest! {
   }
 
   #[test]
-  fn test_merge_pts_correct() {
+  fn test_merge_pts_correct(omino in omino_strategy(10)) {
     //idk exactly how at 11pm
     todo!()
   }
+
   // #[test]
   // fn i64_is_never_negative(a: i64) {
   //     prop_assert!(a >= 0);
   // }
+
 }

@@ -1,17 +1,18 @@
 #![allow(unused)]
 
-
 use itertools::sorted;
+use proptest::{prelude::*, sample::select};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+use rustc_hash::FxHashSet as HashSet;
 use smallvec::{smallvec, SmallVec};
 use std::cmp::Ordering;
-use std::collections::HashSet;
+// use std::collections::HashSet;
 use Ordering::*;
-use proptest::{prelude::*, sample::select};
-use rand::thread_rng;
-use rand::seq::SliceRandom;
 
 use crate::omino::{
-  normalize_omino, offset_in_dir, sum_points, translate_omino, Dir, FreePoint, FreePointList, enumerate_polyominos, PointList,
+  enumerate_polyominos, normalize_omino, offset_in_dir, sum_points, translate_omino, Dir,
+  FreePoint, FreePointList, PointList,
 };
 use Dir::*;
 
@@ -239,7 +240,7 @@ pub fn merge_pts(pts: &FreePointList, mut new_pts: FreePointList) -> Option<Free
   */
   assert!(pts.is_sorted());
   assert!(new_pts.is_sorted());
-  
+
   let mut out = smallvec![];
   let mut pts_index = 0;
   let mut new_pts_index = 0;
@@ -333,9 +334,9 @@ pub fn find_arrangement_translation(omino: &FreePointList) -> Option<SmallVec<[F
   way to proceed. Since we are only looking at translations and not rotations,
   to cover the N side of the hole, we must use a S facing edge, and so on.
    */
-  let mut stack: Vec<ConfigurationTranslation> = vec![ConfigurationTranslation::default()]; 
+  let mut stack: Vec<ConfigurationTranslation> = vec![ConfigurationTranslation::default()];
   let perimeter = iter_perimeter(omino);
-  let sorted_omino : FreePointList = sorted(omino.iter()).map(|&x|x).collect();
+  let sorted_omino: FreePointList = sorted(omino.iter()).map(|&x| x).collect();
   while let Some(config) = stack.pop() {
     match add_translation_children(&sorted_omino, &perimeter, &mut stack, config) {
       Some(ans) => return Some(ans),
@@ -430,7 +431,7 @@ pub mod test {
 
   use crate::omino::Grid;
 
-use super::*;
+  use super::*;
 
   fn point_assert(fp: FreePoint) {
     assert_eq!(fp, rotate_180(rotate_180(fp)));
@@ -474,7 +475,7 @@ use super::*;
   fn unarrange_not_arrange() {
     let mut un25 = unarrangeable25();
     dbg!(&un25);
-    let un25_grid : Grid = un25.clone().into();
+    let un25_grid: Grid = un25.clone().into();
     dbg!(&un25_grid);
     assert_eq!(un25.len(), 25);
     assert_eq!(find_arrangement(&un25), None);
@@ -482,16 +483,16 @@ use super::*;
   }
 }
 
-fn omino_strategy(size : u8) -> impl Strategy<Value = FreePointList> {
-  let ominos = enumerate_polyominos(size); 
-  fn pl_to_fpl(pl:PointList) -> FreePointList {
-    pl.into_iter().map(|x|x.into()).collect()
+fn omino_strategy(size: u8) -> impl Strategy<Value = FreePointList> {
+  let ominos = enumerate_polyominos(size);
+  fn pl_to_fpl(pl: PointList) -> FreePointList {
+    pl.into_iter().map(|x| x.into()).collect()
   }
-  return select(ominos).prop_map(pl_to_fpl)
+  return select(ominos).prop_map(pl_to_fpl);
 }
 
 fn point_strategy() -> impl Strategy<Value = FreePoint> {
-  (any::<i8>(), any::<i8>()).prop_map(|(x, y)| FreePoint{x, y})
+  (any::<i8>(), any::<i8>()).prop_map(|(x, y)| FreePoint { x, y })
 }
 
 fn shuffle_omino(fps: &FreePointList) -> FreePointList {
@@ -527,7 +528,7 @@ proptest! {
     new_perimeter.sort();
     prop_assert_eq!(original_perimeter, new_perimeter)
   }
-  
+
   #[test]
   fn tranlation_preserves_sorted(omino in omino_strategy(10), point in point_strategy()) {
     todo!()

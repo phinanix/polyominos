@@ -1,6 +1,7 @@
 #![allow(unused)]
 #![feature(is_sorted)]
 mod assemble;
+mod board;
 mod omino;
 
 use assemble::find_arrangement_translation;
@@ -9,7 +10,7 @@ use std::time::SystemTime;
 
 use crate::{
   assemble::{find_arrangement, has_rotated_corner_arrangement, rotational_deduplicate},
-  omino::{enumerate_polyominos, Grid},
+  omino::{enumerate_polyominos, Grid}, board::has_arrangement_board,
 };
 
 fn main() {
@@ -31,10 +32,12 @@ fn main() {
     // println!("{}-ominoes, count: {} corner_able: {}", i, num_ominos, corner_arrangements.len());
 
     let untranslateable_ominos =
-      fpl_ominos.into_iter().filter(|omino| find_arrangement(omino).is_none()).collect_vec();
+      fpl_ominos.into_iter().filter(|omino| !has_arrangement_board(omino)).collect_vec();
+ d   // let untranslateable_ominos =
+    //   fpl_ominos.into_iter().filter(|omino| find_arrangement(omino).is_none()).collect_vec();
     let end = SystemTime::now();
     println!(
-      "{}-ominoes, count: {} untranslateable: {}, took {} seconds per 100k ominos",
+      "{} ominoes, count: {} untranslateable: {}, took {} seconds per 100k ominos",
       i,
       num_ominos,
       untranslateable_ominos.len(),

@@ -10,10 +10,10 @@ use std::cmp::Ordering;
 // use std::collections::HashSet;
 use Ordering::*;
 
-use crate::omino::{
+use crate::{omino::{
   enumerate_polyominos, normalize_omino, offset_in_dir, sum_points, translate_omino, Dir,
   FreePoint, FreePointList, PointList,
-};
+}, board::{Board, covers_board}};
 use Dir::*;
 
 /*
@@ -46,7 +46,7 @@ ominos, iterate an omino's perimeter
 
 //kind of a half edge
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
-pub struct Edge(FreePoint, Dir);
+pub struct Edge(pub FreePoint, pub Dir);
 
 impl Edge {
   pub fn flip(self) -> Self {
@@ -91,11 +91,12 @@ pub fn iter_perimeter_slow(fps: &FreePointList) -> Vec<Edge> {
 }
 
 pub fn iter_perimeter(fps: &FreePointList) -> Vec<Edge> {
-  let points_occupied: HashSet<FreePoint> = fps.iter().cloned().collect();
+  let mut board = Board::empty();
+  board.add(&fps);
   let mut out = vec![];
   for &pt in fps {
     for (neighbor, dir) in pt.get_neighbors_with_directions() {
-      if !points_occupied.contains(&neighbor) {
+      if !board.contains(neighbor) {
         out.push(Edge(pt, dir));
       }
     }
@@ -401,6 +402,7 @@ pub fn add_tr_children(
   None
 }
 
+
 pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge); 4]>> {
   /*
   Given an omino, searches for a set of translation+rotationss which arrange
@@ -429,10 +431,6 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
   None
 }
 
-// fn get_leftmost(omino: &[FreePoint]) -> FreePointList {
-//   let out = smallvec![omino[0]];
-//   out
-// }
 
 pub fn has_rotated_corner_arrangement(omino: &FreePointList) -> bool {
   let mut rotated_ominos = [0, 1, 2, 3].map(|amt| rotate_omino(omino, amt));
@@ -559,11 +557,11 @@ proptest! {
     todo!()
   }
 
-  #[test]
-  fn test_merge_pts_correct(omino in omino_strategy(10)) {
-    //idk exactly how at 11pm
-    todo!()
-  }
+  //#[test]
+  //fn test_merge_pts_correct(omino in omino_strategy(10)) {
+  //  //idk exactly how at 11pm
+  //  todo!()
+  //}
 
   // #[test]
   // fn i64_is_never_negative(a: i64) {

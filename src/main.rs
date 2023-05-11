@@ -1,5 +1,7 @@
 #![allow(unused)]
 #![feature(is_sorted)]
+#![feature(impl_trait_in_fn_trait_return)]
+#![feature(array_methods)]
 mod assemble;
 mod board;
 mod omino;
@@ -33,7 +35,7 @@ fn main() {
 
     let untranslateable_ominos =
       fpl_ominos.into_iter().filter(|omino| !has_arrangement_board(omino)).collect_vec();
- d   // let untranslateable_ominos =
+    // let untranslateable_ominos =
     //   fpl_ominos.into_iter().filter(|omino| find_arrangement(omino).is_none()).collect_vec();
     let end = SystemTime::now();
     println!(

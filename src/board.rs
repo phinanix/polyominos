@@ -20,8 +20,33 @@ impl Board {
     }
     return true;
   }
+  #[inline]
+  pub fn add_<I>(&mut self, fpl: impl Fn() -> I) -> bool
+  where
+    I: Iterator<Item = FreePoint>,
+  {
+    for pt in fpl() {
+      if self.0[OFFSET + pt.x as usize][OFFSET + pt.y as usize] {
+        return false;
+      }
+    }
+    for pt in fpl() {
+      self.0[OFFSET + pt.x as usize][OFFSET + pt.y as usize] = true;
+    }
+    return true;
+  }
   pub fn undo(&mut self, fpl: &[FreePoint]) {
     for pt in fpl {
+      assert!(self.0[OFFSET + pt.x as usize][OFFSET + pt.y as usize]);
+      self.0[OFFSET + pt.x as usize][OFFSET + pt.y as usize] = false;
+    }
+  }
+  #[inline]
+  pub fn undo_<I>(&mut self, fpl: impl Fn() -> I)
+  where
+    I: Iterator<Item = FreePoint>,
+  {
+    for pt in fpl() {
       assert!(self.0[OFFSET + pt.x as usize][OFFSET + pt.y as usize]);
       self.0[OFFSET + pt.x as usize][OFFSET + pt.y as usize] = false;
     }
@@ -37,7 +62,7 @@ impl Board {
 }
 
 pub fn covers_board(
-  ominos: &[FreePointList; 4],
+  ominos: &[&[FreePoint]; 4],
   perimeters: &[Vec<Edge>; 4],
   board: &mut Board,
 ) -> bool {
@@ -47,12 +72,12 @@ pub fn covers_board(
   for i in 0..=3 {
     for &(Edge(fp, d)) in &perimeters[i] {
       if (d == dir_to_cover) {
-        let fpl = translate_a_to_b(&ominos[i], fp, pt_to_cover).0;
-        if board.add(&fpl) {
+        let translation = translation_of_a_to_b(fp, pt_to_cover);
+        if board.add_(|| translate_omino_iter(&ominos[i], translation)) {
           if covers_board(ominos, perimeters, board) {
             return true;
           }
-          board.undo(&fpl);
+          board.undo_(|| translate_omino_iter(&ominos[i], translation));
         }
       }
     }
@@ -80,5 +105,6 @@ pub fn has_arrangement_board(omino: &FreePointList) -> bool {
   }
   let perimeters = rotated_ominos.clone().map(|omino| iter_perimeter(&omino));
   let mut board = Board::empty();
-  covers_board(&rotated_ominos, &perimeters, &mut board)
+  let rotated_ominos_borrows: [&[FreePoint]; 4] = rotated_ominos.each_ref().map(|x| &x[..]);
+  covers_board(&rotated_ominos_borrows, &perimeters, &mut board)
 }

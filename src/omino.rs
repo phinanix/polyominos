@@ -286,6 +286,13 @@ pub fn translate_omino(omino: &FreePointList, translation: FreePoint) -> FreePoi
   omino.iter().map(|&pt| sum_points(pt, translation)).collect()
 }
 
+pub fn translate_omino_iter(
+  omino: &[FreePoint],
+  translation: FreePoint,
+) -> impl Iterator<Item = FreePoint> + '_ {
+  omino.iter().map(move |&pt| sum_points(pt, translation))
+}
+
 pub fn invert_point(FreePoint { x, y }: FreePoint) -> FreePoint {
   FreePoint { x: -1 * x, y: -1 * y }
 }

@@ -10,10 +10,13 @@ use std::cmp::Ordering;
 // use std::collections::HashSet;
 use Ordering::*;
 
-use crate::{omino::{
-  enumerate_polyominos, normalize_omino, offset_in_dir, sum_points, translate_omino, Dir,
-  FreePoint, FreePointList, PointList,
-}, board::{Board, covers_board}};
+use crate::{
+  board::{covers_board, Board},
+  omino::{
+    enumerate_polyominos, normalize_omino, offset_in_dir, sum_points, translate_omino, Dir,
+    FreePoint, FreePointList, PointList,
+  },
+};
 use Dir::*;
 
 /*
@@ -402,7 +405,6 @@ pub fn add_tr_children(
   None
 }
 
-
 pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge); 4]>> {
   /*
   Given an omino, searches for a set of translation+rotationss which arrange
@@ -430,7 +432,6 @@ pub fn find_arrangement(omino: &FreePointList) -> Option<SmallVec<[(Edge, Edge);
   }
   None
 }
-
 
 pub fn has_rotated_corner_arrangement(omino: &FreePointList) -> bool {
   let mut rotated_ominos = [0, 1, 2, 3].map(|amt| rotate_omino(omino, amt));

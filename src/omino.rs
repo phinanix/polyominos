@@ -251,6 +251,7 @@ impl FreePoint {
     out
   }
 
+  #[inline]
   pub fn get_neighbors_with_directions(self) -> [(FreePoint, Dir); 4] {
     [N, E, S, W].map(|d| (offset_in_dir(self, d), d))
   }

@@ -95,14 +95,32 @@ pub fn iter_perimeter_slow(fps: &FreePointList) -> Vec<Edge> {
 
 pub fn iter_perimeter(fps: &FreePointList) -> Vec<Edge> {
   let mut board = Board::empty();
-  board.add(&fps);
-  let mut out = vec![];
+  board.add_always(&fps);
+  let mut out = Vec::with_capacity((fps.len() * 2) + 2);
   for &pt in fps {
-    for (neighbor, dir) in pt.get_neighbors_with_directions() {
-      if !board.contains(neighbor) {
-        out.push(Edge(pt, dir));
-      }
+    let xs = pt.get_neighbors_with_directions();
+    let a = board.contains(xs[0].0);
+    let b = board.contains(xs[1].0);
+    let c = board.contains(xs[2].0);
+    let d = board.contains(xs[3].0);
+    if !a {
+      out.push(Edge(pt, xs[0].1));
     }
+    if !b {
+      out.push(Edge(pt, xs[1].1));
+    }
+    if !c {
+      out.push(Edge(pt, xs[2].1));
+    }
+    if !d {
+      out.push(Edge(pt, xs[3].1));
+    }
+    // for i in 0..=3 {
+    //   let (neighbor, dir) = xs[i];
+    //   if !board.contains(neighbor) {
+    //     out.push(Edge(pt, dir));
+    //   }
+    // }
   }
   out
 }
@@ -166,15 +184,13 @@ pub fn rotational_deduplicate(ominos: &Vec<FreePointList>) -> Vec<FreePointList>
 
 pub fn rotate_omino(omino: &FreePointList, rotate_amt: u8) -> FreePointList {
   //invariant: rotate_amt is 0,1,2,3 and represents the number of cw turns
-  let rotate_fn = match rotate_amt {
-    0 => rotate_0,
-    1 => rotate_cw,
-    2 => rotate_180,
-    3 => rotate_ccw,
+  match rotate_amt {
+    0 => omino.clone(),
+    1 => omino.iter().map(|&p| rotate_cw(p)).collect(),
+    2 => omino.iter().map(|&p| rotate_180(p)).collect(),
+    3 => omino.iter().map(|&p| rotate_ccw(p)).collect(),
     _ => unreachable!("rotate amount not <4"),
-  };
-
-  omino.iter().map(|&p| rotate_fn(p)).collect()
+  }
 }
 
 pub fn rotate_omino_edge(

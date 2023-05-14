@@ -105,7 +105,7 @@ impl Grid {
 pub type PointList = SmallVec<[Point; 16]>;
 
 fn enumerate_recursion(
-  out: &mut Vec<PointList>,
+  cb: &mut impl FnMut(&[Point]) -> (),
   grid: &mut Grid,
   mut untried_set: PointList,
   occupied_set: &mut PointList,
@@ -121,10 +121,7 @@ fn enumerate_recursion(
 
     if cur_omino_size == size {
       //we have produced an omino of the desired size
-      out.push(occupied_set.clone());
-      if out.len() % 1000000 == 0 {
-        println!("out.len {}", out.len());
-      }
+      cb(occupied_set);
     } else {
       //we aren't done with this omino yet, so we need to update reachability and so on
       let mut new_reachable_set = untried_set.clone();
@@ -137,7 +134,7 @@ fn enumerate_recursion(
         new_reachable_set.push(neighbor);
         grid.set_pos(neighbor, Reachable);
       }
-      enumerate_recursion(out, grid, new_reachable_set, occupied_set, cur_omino_size, size);
+      enumerate_recursion(cb, grid, new_reachable_set, occupied_set, cur_omino_size, size);
       for neighbor in free_neighbors {
         grid.set_pos(neighbor, Free);
       }
@@ -150,8 +147,7 @@ fn enumerate_recursion(
   }
 }
 
-pub fn enumerate_polyominos(size: u8) -> Vec<PointList> {
-  let mut out = vec![];
+pub fn enumerate_polyominos(size: u8, mut cb: impl FnMut(&[Point]) -> ()) {
   let mut enum_grid = Grid::default();
   let mut reachable_set: PointList = smallvec![Point { x: 0, y: 0 }];
   enum_grid.set_pos(Point { x: 0, y: 0 }, TileState::Reachable);
@@ -159,15 +155,13 @@ pub fn enumerate_polyominos(size: u8) -> Vec<PointList> {
   let mut cur_omino_size: u8 = 0;
 
   enumerate_recursion(
-    &mut out,
+    &mut cb,
     &mut enum_grid,
     reachable_set,
     &mut occupied_set,
     cur_omino_size,
     size,
   );
-
-  return out;
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]

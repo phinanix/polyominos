@@ -1,7 +1,7 @@
 use crate::{assemble::*, omino::*};
 use Dir::*;
 
-const OFFSET: usize = 16;
+const OFFSET: usize = 32;
 const MAX_SIZE: usize = OFFSET * 2;
 
 pub struct Board(pub [[bool; MAX_SIZE]; MAX_SIZE]);

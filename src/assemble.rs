@@ -524,7 +524,8 @@ pub mod test {
 }
 
 fn omino_strategy(size: u8) -> impl Strategy<Value = FreePointList> {
-  let ominos = enumerate_polyominos(size);
+  let mut ominos: Vec<PointList> = vec![];
+  enumerate_polyominos(size, |pl| ominos.push(pl.into()));
   fn pl_to_fpl(pl: PointList) -> FreePointList {
     pl.into_iter().map(|x| x.into()).collect()
   }

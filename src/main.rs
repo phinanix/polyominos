@@ -12,7 +12,8 @@ use std::time::SystemTime;
 
 use crate::{
   assemble::{find_arrangement, has_rotated_corner_arrangement, rotational_deduplicate},
-  omino::{enumerate_polyominos, Grid}, board::has_arrangement_board,
+  board::has_arrangement_board,
+  omino::{enumerate_polyominos, FreePointList, Grid},
 };
 
 fn main() {
@@ -22,19 +23,22 @@ fn main() {
 
   let lim = 13;
   // for i in 5..=6 {
-  for i in 1..=14 {
+  for i in 1..=25 {
     let start = SystemTime::now();
-    let ominos = enumerate_polyominos(i);
-    let num_ominos = ominos.len();
-    let fpl_ominos =
-      ominos.into_iter().map(|pts| pts.into_iter().map(|pt| pt.into()).collect()).collect_vec();
+    let mut untranslateable_ominos = vec![];
+    let mut num_ominos = 0;
+    let ominos = enumerate_polyominos(i, |pts| {
+      num_ominos += 1;
+      let fpl: FreePointList = pts.into_iter().map(|pt| pt.clone().into()).collect();
+      if !has_arrangement_board(&fpl) {
+        untranslateable_ominos.push(fpl);
+      }
+    });
     // let corner_arrangements =
     //   fpl_ominos.iter().filter(|omino| !has_rotated_corner_arrangement(omino)).collect_vec();
     // dbg!(&corner_arrangements.iter().map(|fpl| Grid::from((**fpl).clone())).collect_vec());
     // println!("{}-ominoes, count: {} corner_able: {}", i, num_ominos, corner_arrangements.len());
 
-    let untranslateable_ominos =
-      fpl_ominos.into_iter().filter(|omino| !has_arrangement_board(omino)).collect_vec();
     // let untranslateable_ominos =
     //   fpl_ominos.into_iter().filter(|omino| find_arrangement(omino).is_none()).collect_vec();
     let end = SystemTime::now();
